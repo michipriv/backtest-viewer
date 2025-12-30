@@ -1,11 +1,12 @@
 /*
   Filename: frontend/src/components/ImageLightbox.jsx
-  V 1.03
+  V 1.07
 */
 import React, { useState, useEffect } from 'react';
 
 /**
  * Lightbox-Komponente für Vollbildansicht mit Navigation
+ * Nur Tastatursteuerung: ESC = Schließen, Pfeiltasten = Navigation
  * @param {Object} props
  * @param {string} props.coin - Coin-Name
  * @param {Object} props.dateData - Daten für ein Datum
@@ -66,59 +67,53 @@ function ImageLightbox({ coin, dateData, initialTimeframe, onClose }) {
 
   return (
     <div 
-      className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column"
       style={{ 
-        backgroundColor: 'rgba(0,0,0,0.95)',
-        zIndex: 9999
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#000000',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        margin: 0
       }}
       onClick={onClose}
     >
-      <div className="d-flex justify-content-between align-items-center p-3 text-white">
-        <h5 className="mb-0">
-          {coin} - {dateData.date} #{dateData.sequence} - {currentTimeframe}
-        </h5>
-        <button 
-          type="button" 
-          className="btn-close btn-close-white"
-          onClick={onClose}
-        ></button>
-      </div>
-      
-      <div 
-        className="flex-grow-1 d-flex align-items-center justify-content-center p-3"
-        onClick={(e) => e.stopPropagation()}
-        style={{ minHeight: 0 }}
+      {/* Hilfe-Text Overlay - nimmt keinen Platz weg */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '10px',
+          left: '10px',
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          color: 'white',
+          fontSize: '11px',
+          padding: '4px 8px',
+          borderRadius: '3px',
+          zIndex: 10000,
+          pointerEvents: 'none'
+        }}
       >
-        <img 
-          src={imageUrl}
-          alt={`${dateData.date} - ${currentTimeframe}`}
-          style={{ 
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain'
-          }}
-        />
+        ESC: Zurück | ← →: Navigation
       </div>
-      
-      <div className="d-flex justify-content-between align-items-center p-3 text-white">
-        <button 
-          className="btn btn-light"
-          onClick={handlePrevious}
-          disabled={currentTimeframeIndex === 0}
-        >
-          ← Vorherige Zeiteinheit
-        </button>
-        <span>
-          {currentTimeframeIndex + 1} / {timeframes.length}
-        </span>
-        <button 
-          className="btn btn-light"
-          onClick={handleNext}
-          disabled={currentTimeframeIndex === timeframes.length - 1}
-        >
-          Nächste Zeiteinheit →
-        </button>
-      </div>
+
+      <img 
+        src={imageUrl}
+        alt={`${dateData.date} - ${currentTimeframe}`}
+        onClick={(e) => e.stopPropagation()}
+        style={{ 
+          maxWidth: '100vw',
+          maxHeight: '100vh',
+          width: 'auto',
+          height: 'auto',
+          objectFit: 'contain',
+          display: 'block'
+        }}
+      />
     </div>
   );
 }

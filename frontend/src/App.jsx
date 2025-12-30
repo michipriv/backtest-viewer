@@ -1,31 +1,57 @@
 /*
   Filename: frontend/src/App.jsx
-  V 1.01
+  V 1.02
 */
 import React, { useState } from 'react';
 import { useCoins } from './hooks/useCoins.js';
 import { useImages } from './hooks/useImages.js';
+import CoinList from './components/CoinList.jsx';
+import DateList from './components/DateList.jsx';
 import ImageGallery from './components/ImageGallery.jsx';
 import ImageLightbox from './components/ImageLightbox.jsx';
 
 /**
- * Hauptkomponente der Anwendung
+ * Hauptkomponente der Anwendung mit Routing
  * @returns {JSX.Element}
  */
 function App() {
   const { coins, loading: coinsLoading, error: coinsError } = useCoins();
+  const [view, setView] = useState('coins');
   const [selectedCoin, setSelectedCoin] = useState('');
-  const { images, loading, error, stats } = useImages(selectedCoin);
+  const { images, loading, error } = useImages(selectedCoin);
   const [currentDateIndex, setCurrentDateIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [selectedTimeframe, setSelectedTimeframe] = useState(null);
 
   /**
-   * Setzt den ausgewählten Coin und resettet Index
+   * Wählt einen Coin aus und zeigt Datumsliste
    */
-  const handleCoinChange = (coin) => {
+  const handleSelectCoin = (coin) => {
     setSelectedCoin(coin);
-    setCurrentDateIndex(0);
+    setView('dates');
+  };
+
+  /**
+   * Wählt ein Datum aus und zeigt Bilder
+   */
+  const handleSelectDate = (index) => {
+    setCurrentDateIndex(index);
+    setView('images');
+  };
+
+  /**
+   * Geht zurück zur Coin-Liste
+   */
+  const handleBackToCoins = () => {
+    setView('coins');
+    setSelectedCoin('');
+  };
+
+  /**
+   * Geht zurück zur Datumsliste
+   */
+  const handleBackToDates = () => {
+    setView('dates');
   };
 
   /**
@@ -95,120 +121,119 @@ function App() {
     );
   }
 
-  if (!selectedCoin && coins.length > 0) {
-    setSelectedCoin(coins[0]);
-    return null;
+  if (view === 'coins') {
+    return (
+      <CoinList 
+        coins={coins}
+        onSelectCoin={handleSelectCoin}
+      />
+    );
   }
 
-  if (loading) {
-    return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <div className="spinner-border" role="status">
-            <span className="visually-hidden">Lade Bilder...</span>
+  if (view === 'dates') {
+    if (loading) {
+      return (
+        <div className="container mt-5">
+          <div className="text-center">
+            <div className="spinner-border" role="status">
+              <span className="visually-hidden">Lade Daten...</span>
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (error) {
-    return (
-      <div className="container mt-5">
-        <div className="alert alert-danger" role="alert">
-          <h4 className="alert-heading">Fehler</h4>
-          <p>{error}</p>
+    if (error) {
+      return (
+        <div className="container mt-5">
+          <div className="alert alert-danger" role="alert">
+            <h4 className="alert-heading">Fehler</h4>
+            <p>{error}</p>
+          </div>
         </div>
-      </div>
+      );
+    }
+
+    return (
+      <DateList
+        coin={selectedCoin}
+        dates={images}
+        onSelectDate={handleSelectDate}
+        onBack={handleBackToCoins}
+      />
     );
   }
 
-  if (images.length === 0) {
+  if (view === 'images') {
+    if (images.length === 0) {
+      return (
+        <div className="container mt-5">
+          <button 
+            className="btn btn-outline-secondary mb-3"
+            onClick={handleBackToDates}
+          >
+            ← Zurück zur Datumsliste
+          </button>
+          <div className="alert alert-warning" role="alert">
+            Keine Bilder für {selectedCoin} gefunden.
+          </div>
+        </div>
+      );
+    }
+
+    const currentDate = images[currentDateIndex];
+
     return (
       <div className="container-fluid py-4">
         <header className="mb-4">
-          <h1 className="h3">Backtest Viewer</h1>
-          <div className="btn-group mb-3">
-            {coins.map(coin => (
-              <button
-                key={coin}
-                className={`btn ${selectedCoin === coin ? 'btn-primary' : 'btn-outline-primary'}`}
-                onClick={() => handleCoinChange(coin)}
-              >
-                {coin}
-              </button>
-            ))}
-          </div>
+          <button 
+            className="btn btn-outline-secondary mb-3"
+            onClick={handleBackToDates}
+          >
+            ← Zurück zur Datumsliste
+          </button>
+          <h1 className="h3">{selectedCoin} - Backtest Viewer</h1>
+          <p className="text-muted mb-1">
+            Datum {currentDateIndex + 1} von {images.length}: {currentDate.date} #{currentDate.sequence}
+          </p>
         </header>
-        <div className="alert alert-warning" role="alert">
-          Keine Bilder für {selectedCoin} gefunden.
+
+        <ImageGallery 
+          coin={selectedCoin}
+          dateData={currentDate}
+          onImageClick={handleImageClick}
+        />
+
+        <div className="d-flex justify-content-between mt-4">
+          <button 
+            className="btn btn-primary"
+            onClick={handlePrevious}
+            disabled={currentDateIndex === 0}
+          >
+            ← Zurück
+          </button>
+          <button 
+            className="btn btn-primary"
+            onClick={handleNext}
+            disabled={currentDateIndex === images.length - 1}
+          >
+            Weiter →
+          </button>
         </div>
+
+        {lightboxOpen && (
+          <ImageLightbox
+            coin={selectedCoin}
+            dateData={currentDate}
+            initialTimeframe={selectedTimeframe}
+            onClose={handleCloseLightbox}
+          />
+        )}
       </div>
     );
   }
 
-  const currentDate = images[currentDateIndex];
-
-  return (
-    <div className="container-fluid py-4">
-      <header className="mb-4">
-        <h1 className="h3">Backtest Viewer</h1>
-        
-        <div className="btn-group mb-3">
-          {coins.map(coin => (
-            <button
-              key={coin}
-              className={`btn ${selectedCoin === coin ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => handleCoinChange(coin)}
-            >
-              {coin}
-            </button>
-          ))}
-        </div>
-
-        <p className="text-muted mb-1">
-          {selectedCoin} - Datum {currentDateIndex + 1} von {images.length}: {currentDate.date} #{currentDate.sequence}
-        </p>
-        {stats && (
-          <small className="text-muted">
-            Gesamt: {stats.byCoin[selectedCoin]?.totalDates || 0} Datumssätze
-          </small>
-        )}
-      </header>
-
-      <ImageGallery 
-        coin={selectedCoin}
-        dateData={currentDate}
-        onImageClick={handleImageClick}
-      />
-
-      <div className="d-flex justify-content-between mt-4">
-        <button 
-          className="btn btn-primary"
-          onClick={handlePrevious}
-          disabled={currentDateIndex === 0}
-        >
-          ← Zurück
-        </button>
-        <button 
-          className="btn btn-primary"
-          onClick={handleNext}
-          disabled={currentDateIndex === images.length - 1}
-        >
-          Weiter →
-        </button>
-      </div>
-
-      {lightboxOpen && (
-        <ImageLightbox
-          coin={selectedCoin}
-          dateData={currentDate}
-          initialTimeframe={selectedTimeframe}
-          onClose={handleCloseLightbox}
-        />
-      )}
-    </div>
-  );
+  return null;
 }
 
 export default App;
