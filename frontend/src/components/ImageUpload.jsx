@@ -1,6 +1,6 @@
 /*
   Filename: frontend/src/components/ImageUpload.jsx
-  V 1.00
+  V 1.01
 */
 import React, { useState } from 'react';
 
@@ -218,7 +218,7 @@ function ImageUpload({ coin, onBack, onComplete }) {
         </div>
       )}
 
-      <div className="d-flex justify-content-end gap-2">
+      <div className="d-flex justify-content-end gap-2 mb-5">
         <button 
           className="btn btn-secondary"
           onClick={onBack}
@@ -234,6 +234,9 @@ function ImageUpload({ coin, onBack, onComplete }) {
           {uploading ? 'Wird hochgeladen...' : `${Object.keys(images).length} Bild(er) hochladen`}
         </button>
       </div>
+
+      {/* Zusätzlicher Abstand zum Bildschirmrand */}
+      <div style={{ height: '100px' }}></div>
     </div>
   );
 }

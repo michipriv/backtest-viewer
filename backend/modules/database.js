@@ -1,6 +1,6 @@
 /*
   Filename: backend/modules/database.js
-  V 1.01
+  V 1.02
 */
 import Database from 'better-sqlite3';
 import { join, dirname } from 'path';
@@ -25,6 +25,7 @@ export function initDatabase() {
       CREATE TABLE IF NOT EXISTS date_notes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date_key TEXT NOT NULL UNIQUE,
+        title TEXT,
         note TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -60,21 +61,22 @@ export function getDateNote(dateKey) {
 }
 
 /**
- * Speichert oder aktualisiert eine Notiz
+ * Speichert oder aktualisiert eine Notiz und Titel
  * @param {string} dateKey - Datum-Key im Format "coin-YYYY-MM-DD-sequence"
  * @param {string} note - Notiztext
+ * @param {string} title - Titel (optional)
  * @returns {Object} Gespeicherte Notiz
  */
-export function saveDateNote(dateKey, note) {
+export function saveDateNote(dateKey, note, title = null) {
   try {
     const stmt = db.prepare(`
-      INSERT INTO date_notes (date_key, note, updated_at)
-      VALUES (?, ?, CURRENT_TIMESTAMP)
+      INSERT INTO date_notes (date_key, note, title, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(date_key) 
-      DO UPDATE SET note = ?, updated_at = CURRENT_TIMESTAMP
+      DO UPDATE SET note = ?, title = ?, updated_at = CURRENT_TIMESTAMP
     `);
     
-    stmt.run(dateKey, note, note);
+    stmt.run(dateKey, note, title, note, title);
     
     logger.info({ dateKey }, 'Notiz gespeichert');
     return getDateNote(dateKey);

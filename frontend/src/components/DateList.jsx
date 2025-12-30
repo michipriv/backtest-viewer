@@ -1,8 +1,8 @@
 /*
   Filename: frontend/src/components/DateList.jsx
-  V 1.02
+  V 1.04
 */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 /**
  * Zeigt eine kompakte Liste aller Datumssätze für einen Coin
@@ -11,12 +11,62 @@ import React, { useState } from 'react';
  * @param {Array<Object>} props.dates - Liste der Datumssätze
  * @param {Function} props.onSelectDate - Callback beim Auswählen eines Datums
  * @param {Function} props.onNewUpload - Callback für neuen Upload
+ * @param {Function} props.onRename - Callback zum Umbenennen eines Datums
  * @param {Function} props.onDelete - Callback zum Löschen eines Datums
  * @param {Function} props.onBack - Callback für Zurück-Button
  * @returns {JSX.Element}
  */
-function DateList({ coin, dates, onSelectDate, onNewUpload, onDelete, onBack }) {
+function DateList({ coin, dates, onSelectDate, onNewUpload, onRename, onDelete, onBack }) {
   const [deletingIndex, setDeletingIndex] = useState(null);
+  const [renamingIndex, setRenamingIndex] = useState(null);
+  const [titles, setTitles] = useState({});
+
+  // Lade Titel für alle Daten
+  useEffect(() => {
+    loadTitles();
+  }, [dates, coin]);
+
+  const loadTitles = async () => {
+    const titleMap = {};
+    for (const dateEntry of dates) {
+      try {
+        const response = await fetch(`/api/notes/${coin}/${dateEntry.dateKey}`, {
+          credentials: 'include'
+        });
+        const result = await response.json();
+        if (result.success && result.data && result.data.title) {
+          titleMap[dateEntry.dateKey] = result.data.title;
+        }
+      } catch (err) {
+        // Ignore
+      }
+    }
+    setTitles(titleMap);
+  };
+
+  /**
+   * Behandelt Umbenennen
+   */
+  const handleRename = async (index, event) => {
+    event.stopPropagation();
+    
+    const dateEntry = dates[index];
+    const newDate = window.prompt(
+      `Neues Datum für ${dateEntry.date} #${dateEntry.sequence}:`,
+      dateEntry.date
+    );
+    
+    if (!newDate || newDate === dateEntry.date) {
+      return;
+    }
+
+    setRenamingIndex(index);
+    try {
+      await onRename(dateEntry, newDate);
+    } finally {
+      setRenamingIndex(null);
+    }
+  };
 
   /**
    * Behandelt Löschen mit Bestätigung
@@ -72,14 +122,30 @@ function DateList({ coin, dates, onSelectDate, onNewUpload, onDelete, onBack }) 
               style={{ cursor: 'pointer' }}
               onClick={() => onSelectDate(index)}
             >
-              <span>{dateEntry.date}</span>
-              <button
-                className="btn btn-sm btn-outline-danger"
-                onClick={(e) => handleDelete(index, e)}
-                disabled={deletingIndex === index}
-              >
-                {deletingIndex === index ? '...' : '🗑'}
-              </button>
+              <span>
+                {dateEntry.date} #{dateEntry.sequence}
+                {titles[dateEntry.dateKey] && (
+                  <span className="text-muted ms-2">- {titles[dateEntry.dateKey]}</span>
+                )}
+              </span>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={(e) => handleRename(index, e)}
+                  disabled={renamingIndex === index}
+                  title="Umbenennen"
+                >
+                  {renamingIndex === index ? '...' : '✏️'}
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={(e) => handleDelete(index, e)}
+                  disabled={deletingIndex === index}
+                  title="Löschen"
+                >
+                  {deletingIndex === index ? '...' : '🗑'}
+                </button>
+              </div>
             </div>
           ))}
         </div>

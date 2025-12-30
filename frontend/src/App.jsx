@@ -1,6 +1,6 @@
 /*
   Filename: frontend/src/App.jsx
-  V 1.07
+  V 1.09
 */
 import React, { useState, useEffect } from 'react';
 import Login from './components/Login.jsx';
@@ -93,6 +93,33 @@ function AuthenticatedApp() {
       }
     } catch (err) {
       alert(`Fehler beim Löschen: ${err.message}`);
+    }
+  };
+
+  const handleRenameDate = async (dateEntry, newDate) => {
+    try {
+      const response = await fetch(`/api/images/${selectedCoin}/${dateEntry.dateKey}/rename`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ newDate })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Umbenennen fehlgeschlagen: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        reload();
+      } else {
+        alert(`Fehler: ${result.error}`);
+      }
+    } catch (err) {
+      alert(`Fehler beim Umbenennen: ${err.message}`);
     }
   };
 
@@ -218,6 +245,7 @@ function AuthenticatedApp() {
         dates={images}
         onSelectDate={handleSelectDate}
         onNewUpload={handleNewUpload}
+        onRename={handleRenameDate}
         onDelete={handleDeleteDate}
         onBack={handleBackToCoins}
       />
@@ -254,42 +282,17 @@ function AuthenticatedApp() {
     const currentDate = images[currentDateIndex];
 
     return (
-      <div className="container-fluid py-4">
-        <header className="mb-4">
-          <button 
-            className="btn btn-outline-secondary mb-3"
-            onClick={handleBackToDates}
-          >
-            ← Zurück zur Datumsliste
-          </button>
-          <h1 className="h3">{selectedCoin} - Backtest Viewer</h1>
-          <p className="text-muted mb-1">
-            Datum {currentDateIndex + 1} von {images.length}: {currentDate.date} #{currentDate.sequence}
-          </p>
-        </header>
-
+      <>
         <ImageGallery 
           coin={selectedCoin}
           dateData={currentDate}
           onImageClick={handleImageClick}
+          onBack={handleBackToDates}
+          dateIndex={currentDateIndex}
+          totalDates={images.length}
+          onPrevious={handlePrevious}
+          onNext={handleNext}
         />
-
-        <div className="d-flex justify-content-between mt-4">
-          <button 
-            className="btn btn-primary"
-            onClick={handlePrevious}
-            disabled={currentDateIndex === 0}
-          >
-            ← Zurück
-          </button>
-          <button 
-            className="btn btn-primary"
-            onClick={handleNext}
-            disabled={currentDateIndex === images.length - 1}
-          >
-            Weiter →
-          </button>
-        </div>
 
         {lightboxOpen && (
           <ImageLightbox
@@ -299,7 +302,7 @@ function AuthenticatedApp() {
             onClose={handleCloseLightbox}
           />
         )}
-      </div>
+      </>
     );
   }
 

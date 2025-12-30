@@ -1,6 +1,6 @@
 /*
   Filename: backend/src/server.js
-  V 1.10
+  V 1.12
 */
 import express from 'express';
 import session from 'express-session';
@@ -8,7 +8,7 @@ import cors from 'cors';
 import multer from 'multer';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { writeFileSync, readdirSync, unlinkSync } from 'fs';
+import { writeFileSync, readdirSync, unlinkSync, renameSync } from 'fs';
 import { logger } from './logger.js';
 import { loadConfig, validateConfig } from './config.js';
 import { scanAllCoins, getCoinStats } from '../modules/imageScanner.js';
@@ -276,7 +276,7 @@ app.get('/api/notes/:coin/:dateKey', requireAuth, (req, res) => {
  */
 app.post('/api/notes', requireAuth, (req, res) => {
   try {
-    const { coin, dateKey, note } = req.body;
+    const { coin, dateKey, note, title } = req.body;
     
     if (!coin || !dateKey) {
       return res.status(400).json({
@@ -286,7 +286,7 @@ app.post('/api/notes', requireAuth, (req, res) => {
     }
     
     const fullKey = `${coin}-${dateKey}`;
-    const savedNote = saveDateNote(fullKey, note || '');
+    const savedNote = saveDateNote(fullKey, note || '', title || null);
     
     res.json({
       success: true,
@@ -448,6 +448,106 @@ app.delete('/api/images/:coin/:dateKey', requireAuth, (req, res) => {
     
   } catch (error) {
     logger.error({ error: error.message }, 'Fehler beim Löschen');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/images/:coin/:dateKey/rename
+ * Benennt alle Bilder eines Datums um
+ */
+app.put('/api/images/:coin/:dateKey/rename', requireAuth, (req, res) => {
+  try {
+    const { coin, dateKey } = req.params;
+    const { newDate } = req.body;
+    
+    if (!newDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'newDate ist erforderlich'
+      });
+    }
+    
+    const coinPath = join(config.basePath, coin);
+    
+    // Finde alle Dateien für alten dateKey
+    const files = readdirSync(coinPath).filter(file => {
+      const match = file.match(/^(\d{4}\.\d{2}\.\d{2})-(\d+)_/);
+      if (!match) return false;
+      
+      const fileDate = match[1].replace(/\./g, '-');
+      const fileSequence = match[2];
+      const fileDateKey = `${fileDate}-${fileSequence}`;
+      
+      return fileDateKey === dateKey;
+    });
+
+    if (files.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Keine Dateien gefunden'
+      });
+    }
+
+    // Ermittle nächste Sequenznummer für neues Datum
+    const newDateFormatted = newDate.replace(/-/g, '.');
+    const existingFiles = readdirSync(coinPath).filter(file => 
+      file.startsWith(newDateFormatted)
+    );
+    
+    let maxSequence = 0;
+    existingFiles.forEach(file => {
+      const match = file.match(/-(\d+)_/);
+      if (match) {
+        maxSequence = Math.max(maxSequence, parseInt(match[1]));
+      }
+    });
+    
+    const newSequence = maxSequence + 1;
+    const newDateKey = `${newDate}-${newSequence}`;
+
+    // Benenne alle Dateien um
+    const renamedFiles = [];
+    files.forEach(file => {
+      const match = file.match(/_(.+?)\.(.+)$/);
+      if (!match) return;
+      
+      const timeframe = match[1];
+      const ext = match[2];
+      const newFilename = `${newDateFormatted}-${newSequence}_${timeframe}.${ext}`;
+      
+      const oldPath = join(coinPath, file);
+      const newPath = join(coinPath, newFilename);
+      
+      renameSync(oldPath, newPath);
+      renamedFiles.push(newFilename);
+      
+      logger.info({ coin, oldFile: file, newFile: newFilename }, 'Bild umbenannt');
+    });
+
+    // Benenne Notiz um
+    const oldNoteKey = `${coin}-${dateKey}`;
+    const newNoteKey = `${coin}-${newDateKey}`;
+    const note = getDateNote(oldNoteKey);
+    if (note) {
+      saveDateNote(newNoteKey, note.note);
+      deleteDateNote(oldNoteKey);
+    }
+
+    res.json({
+      success: true,
+      renamedFiles: renamedFiles.length,
+      newDateKey
+    });
+    
+    // Scanne Coins neu
+    rescanCoins();
+    
+  } catch (error) {
+    logger.error({ error: error.message }, 'Fehler beim Umbenennen');
     res.status(500).json({
       success: false,
       error: error.message

@@ -1,185 +1,124 @@
 /*
   Filename: frontend/src/components/ImageGallery.jsx
-  V 1.05
+  V 1.06
 */
-import React, { useState } from 'react';
-import { useNotes } from '../hooks/useNotes.js';
+import React, { useState, useEffect } from 'react';
 
 /**
- * Zeigt alle Bilder eines Datums als Thumbnail-Grid mit einem Notizfeld für das gesamte Datum
- * @param {Object} props
- * @param {string} props.coin - Coin-Name
- * @param {Object} props.dateData - Daten für ein Datum
- * @param {Function} props.onImageClick - Callback beim Klick auf Bild
- * @returns {JSX.Element}
+ * Zeigt alle Bilder eines Datums mit Titel und Notizen
  */
-function ImageGallery({ coin, dateData, onImageClick }) {
+function ImageGallery({ coin, dateData, onImageClick, onBack, dateIndex, totalDates, onPrevious, onNext }) {
   const timeframes = ['1m', '3m', '5m', '15m', '1h', '4h'];
-  const { note, setNote, saveStatus } = useNotes(coin, dateData.dateKey);
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
+  const [saveTimer, setSaveTimer] = useState(null);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
 
-  /**
-   * Maximiert das Notizfeld auf Vollbild
-   */
-  const handleMaximize = () => {
-    setIsMaximized(true);
-    setIsMinimized(false);
+  // Lade Titel und Notiz
+  useEffect(() => {
+    loadNoteData();
+  }, [coin, dateData.dateKey]);
+
+  const loadNoteData = async () => {
+    try {
+      const response = await fetch(`/api/notes/${coin}/${dateData.dateKey}`, {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        setTitle(result.data.title || '');
+        setNote(result.data.note || '');
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden:', err);
+    }
   };
 
-  /**
-   * Minimiert das Notizfeld
-   */
-  const handleMinimize = () => {
-    setIsMinimized(true);
-    setIsMaximized(false);
+  const saveNoteData = async (newTitle, newNote) => {
+    try {
+      console.log('Speichere:', { coin, dateKey: dateData.dateKey, title: newTitle, note: newNote });
+      setSaveStatus('Speichere...');
+      const response = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          coin,
+          dateKey: dateData.dateKey,
+          title: newTitle,
+          note: newNote
+        })
+      });
+      
+      console.log('Response status:', response.status);
+      const result = await response.json();
+      console.log('Response data:', result);
+      
+      if (response.ok) {
+        setSaveStatus('Gespeichert');
+        setTimeout(() => setSaveStatus(''), 2000);
+      } else {
+        setSaveStatus('Fehler: ' + (result.error || response.status));
+        setTimeout(() => setSaveStatus(''), 3000);
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      setSaveStatus('Fehler: ' + err.message);
+      setTimeout(() => setSaveStatus(''), 3000);
+    }
   };
 
-  /**
-   * Stellt normale Größe wieder her
-   */
-  const handleRestore = () => {
-    setIsMaximized(false);
-    setIsMinimized(false);
+  const handleTitleChange = (e) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    
+    if (saveTimer) clearTimeout(saveTimer);
+    const timer = setTimeout(() => {
+      saveNoteData(newTitle, note);
+    }, 1000);
+    setSaveTimer(timer);
   };
 
-  if (isMinimized) {
-    return (
-      <>
-        <div className="row g-3 mb-4">
-          {timeframes.map(timeframe => {
-            const imageData = dateData.images[timeframe];
-            
-            if (!imageData) {
-              return (
-                <div key={timeframe} className="col-12 col-md-6 col-lg-4">
-                  <div className="card">
-                    <div className="card-body text-center text-muted">
-                      <p className="mb-0">{timeframe}</p>
-                      <small>Kein Bild vorhanden</small>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            const imageUrl = `/api/image/${coin}/${imageData.filename}`;
-
-            return (
-              <div key={timeframe} className="col-12 col-md-6 col-lg-4">
-                <div className="card h-100 shadow-sm">
-                  <div 
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => onImageClick(timeframe)}
-                  >
-                    <img 
-                      src={imageUrl} 
-                      className="card-img-top"
-                      alt={`${dateData.date} - ${timeframe}`}
-                      style={{ 
-                        objectFit: 'contain',
-                        height: '200px',
-                        backgroundColor: '#f8f9fa'
-                      }}
-                    />
-                  </div>
-                  <div className="card-body">
-                    <h6 className="card-title mb-0">{timeframe}</h6>
-                    <small className="text-muted">{imageData.filename}</small>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="card shadow-sm">
-          <div className="card-body py-2">
-            <div className="d-flex justify-content-between align-items-center">
-              <h6 className="card-title mb-0">Notizen (minimiert)</h6>
-              <div className="d-flex gap-2 align-items-center">
-                {saveStatus === 'saving' && (
-                  <small className="text-muted">Speichere...</small>
-                )}
-                {saveStatus === 'saved' && (
-                  <small className="text-success">✓</small>
-                )}
-                {saveStatus === 'error' && (
-                  <small className="text-danger">✗</small>
-                )}
-                <button 
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={handleRestore}
-                  title="Wiederherstellen"
-                >
-                  ↕
-                </button>
-                <button 
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={handleMaximize}
-                  title="Maximieren"
-                >
-                  ⛶
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  if (isMaximized) {
-    return (
-      <div 
-        className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column"
-        style={{ 
-          backgroundColor: 'white',
-          zIndex: 9998,
-          padding: '20px'
-        }}
-      >
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h5 className="mb-0">Notizen für {dateData.date} #{dateData.sequence}</h5>
-          <div className="d-flex gap-2 align-items-center">
-            {saveStatus === 'saving' && (
-              <small className="text-muted">Speichere...</small>
-            )}
-            {saveStatus === 'saved' && (
-              <small className="text-success">✓ Gespeichert</small>
-            )}
-            {saveStatus === 'error' && (
-              <small className="text-danger">✗ Fehler</small>
-            )}
-            <button 
-              className="btn btn-sm btn-outline-secondary"
-              onClick={handleMinimize}
-              title="Minimieren"
-            >
-              ▬
-            </button>
-            <button 
-              className="btn btn-sm btn-outline-secondary"
-              onClick={handleRestore}
-              title="Wiederherstellen"
-            >
-              ❐
-            </button>
-          </div>
-        </div>
-        <textarea
-          className="form-control flex-grow-1"
-          placeholder="Notizen für dieses Datum..."
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          style={{ resize: 'none' }}
-        />
-      </div>
-    );
-  }
+  const handleNoteChange = (e) => {
+    const newNote = e.target.value;
+    setNote(newNote);
+    
+    if (saveTimer) clearTimeout(saveTimer);
+    const timer = setTimeout(() => {
+      saveNoteData(title, newNote);
+    }, 1000);
+    setSaveTimer(timer);
+  };
 
   return (
-    <>
+    <div className="container-fluid py-3">
+      {/* Kompakte Header-Zeile */}
+      <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <button className="btn btn-outline-secondary btn-sm" onClick={onBack}>
+          ← Zurück
+        </button>
+        <span className="text-muted">|</span>
+        <h5 className="mb-0">{coin} - Backtest Viewer</h5>
+        <span className="text-muted">|</span>
+        <span className="text-muted">Datum: {dateData.date} #{dateData.sequence}</span>
+        <span className="text-muted">|</span>
+        <div className="d-flex align-items-center gap-2" style={{ flex: 1 }}>
+          <label className="mb-0 text-nowrap">Titel:</label>
+          <input
+            type="text"
+            className="form-control form-control-sm"
+            value={title}
+            onChange={handleTitleChange}
+            placeholder="Titel eingeben..."
+            style={{ maxWidth: '300px' }}
+          />
+          {saveStatus && <small className="text-success">{saveStatus}</small>}
+        </div>
+      </div>
+
+      {/* Bilder Grid */}
       <div className="row g-3 mb-4">
         {timeframes.map(timeframe => {
           const imageData = dateData.images[timeframe];
@@ -190,7 +129,7 @@ function ImageGallery({ coin, dateData, onImageClick }) {
                 <div className="card">
                   <div className="card-body text-center text-muted">
                     <p className="mb-0">{timeframe}</p>
-                    <small>Kein Bild vorhanden</small>
+                    <small>Kein Bild</small>
                   </div>
                 </div>
               </div>
@@ -202,10 +141,7 @@ function ImageGallery({ coin, dateData, onImageClick }) {
           return (
             <div key={timeframe} className="col-12 col-md-6 col-lg-4">
               <div className="card h-100 shadow-sm">
-                <div 
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => onImageClick(timeframe)}
-                >
+                <div style={{ cursor: 'pointer' }} onClick={() => onImageClick(timeframe)}>
                   <img 
                     src={imageUrl} 
                     className="card-img-top"
@@ -217,9 +153,8 @@ function ImageGallery({ coin, dateData, onImageClick }) {
                     }}
                   />
                 </div>
-                <div className="card-body">
+                <div className="card-body py-2">
                   <h6 className="card-title mb-0">{timeframe}</h6>
-                  <small className="text-muted">{imageData.filename}</small>
                 </div>
               </div>
             </div>
@@ -227,46 +162,95 @@ function ImageGallery({ coin, dateData, onImageClick }) {
         })}
       </div>
 
-      <div className="card shadow-sm">
-        <div className="card-body">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h6 className="card-title mb-0">Notizen für {dateData.date} #{dateData.sequence}</h6>
-            <div className="d-flex gap-2 align-items-center">
-              {saveStatus === 'saving' && (
-                <small className="text-muted">Speichere...</small>
-              )}
-              {saveStatus === 'saved' && (
-                <small className="text-success">✓ Gespeichert</small>
-              )}
-              {saveStatus === 'error' && (
-                <small className="text-danger">✗ Fehler</small>
-              )}
-              <button 
-                className="btn btn-sm btn-outline-primary"
-                onClick={handleMinimize}
-                title="Minimieren"
-              >
-                ▬
-              </button>
-              <button 
-                className="btn btn-sm btn-outline-primary"
-                onClick={handleMaximize}
-                title="Maximieren"
-              >
-                ⛶
+      {/* Notizen */}
+      {isMinimized ? (
+        <div className="card shadow-sm">
+          <div className="card-body py-2">
+            <div className="d-flex justify-content-between align-items-center">
+              <h6 className="mb-0">Notizen (minimiert)</h6>
+              <div className="d-flex gap-2">
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => setIsMinimized(false)}>
+                  ↕
+                </button>
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => { setIsMinimized(false); setIsMaximized(true); }}>
+                  ⛶
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : isMaximized ? (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white',
+          zIndex: 1050,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '20px'
+        }}>
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h5>Notizen - {dateData.date} #{dateData.sequence}</h5>
+            <div className="d-flex gap-2">
+              <button className="btn btn-sm btn-outline-secondary" onClick={() => setIsMaximized(false)}>
+                ❐ Verkleinern
               </button>
             </div>
           </div>
           <textarea
             className="form-control"
-            rows="5"
-            placeholder="Notizen für dieses Datum..."
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={handleNoteChange}
+            placeholder="Notizen hier eingeben..."
+            style={{ flex: 1, resize: 'none' }}
           />
         </div>
+      ) : (
+        <div className="card shadow-sm">
+          <div className="card-body">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h6 className="card-title mb-0">Notizen</h6>
+              <div className="d-flex gap-2">
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => setIsMinimized(true)}>
+                  ▬
+                </button>
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => setIsMaximized(true)}>
+                  ⛶
+                </button>
+              </div>
+            </div>
+            <textarea
+              className="form-control"
+              value={note}
+              onChange={handleNoteChange}
+              rows="5"
+              placeholder="Notizen hier eingeben..."
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="d-flex justify-content-between mt-4">
+        <button 
+          className="btn btn-primary"
+          onClick={onPrevious}
+          disabled={dateIndex === 0}
+        >
+          ← Zurück
+        </button>
+        <button 
+          className="btn btn-primary"
+          onClick={onNext}
+          disabled={dateIndex === totalDates - 1}
+        >
+          Weiter →
+        </button>
       </div>
-    </>
+    </div>
   );
 }
 
