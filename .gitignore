@@ -4,3 +4,4 @@ logs/
 *.log  
 .DS_Store  
 shared/notes.db 
+shared/auth.db 

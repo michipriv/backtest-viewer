@@ -1,6 +1,6 @@
 /*
   Filename: frontend/src/hooks/useCoins.js
-  V 1.00
+  V 1.01
 */
 import { useState, useEffect } from 'react';
 
@@ -20,7 +20,9 @@ export function useCoins() {
     async function fetchCoins() {
       try {
         setLoading(true);
-        const response = await fetch('/api/coins');
+        const response = await fetch('/api/coins', {
+          credentials: 'include'
+        });
         
         if (!response.ok) {
           throw new Error(`HTTP-Fehler: ${response.status}`);

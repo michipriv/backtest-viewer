@@ -1,87 +1,145 @@
 /*
   Filename: frontend/src/App.jsx
-  V 1.02
+  V 1.07
 */
-import React, { useState } from 'react';
-import { useCoins } from './hooks/useCoins.js';
-import { useImages } from './hooks/useImages.js';
+import React, { useState, useEffect } from 'react';
+import Login from './components/Login.jsx';
 import CoinList from './components/CoinList.jsx';
 import DateList from './components/DateList.jsx';
 import ImageGallery from './components/ImageGallery.jsx';
 import ImageLightbox from './components/ImageLightbox.jsx';
+import ImageUpload from './components/ImageUpload.jsx';
+import { useCoins } from './hooks/useCoins.js';
+import { useImages } from './hooks/useImages.js';
 
 /**
- * Hauptkomponente der Anwendung mit Routing
+ * Hauptkomponente der Anwendung mit Auth
  * @returns {JSX.Element}
  */
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/auth/status', {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      setIsAuthenticated(result.authenticated);
+    } catch (err) {
+      setIsAuthenticated(false);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="container mt-5">
+        <div className="text-center">
+          <div className="spinner-border" role="status">
+            <span className="visually-hidden">Lade...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  return <AuthenticatedApp />;
+}
+
+/**
+ * App nach Login
+ */
+function AuthenticatedApp() {
   const { coins, loading: coinsLoading, error: coinsError } = useCoins();
   const [view, setView] = useState('coins');
   const [selectedCoin, setSelectedCoin] = useState('');
-  const { images, loading, error } = useImages(selectedCoin);
+  const { images, loading, error, reload } = useImages(selectedCoin);
   const [currentDateIndex, setCurrentDateIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [selectedTimeframe, setSelectedTimeframe] = useState(null);
 
-  /**
-   * Wählt einen Coin aus und zeigt Datumsliste
-   */
+  const handleDeleteDate = async (dateEntry) => {
+    try {
+      const response = await fetch(`/api/images/${selectedCoin}/${dateEntry.dateKey}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Löschen fehlgeschlagen: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        reload();
+      } else {
+        alert(`Fehler: ${result.error}`);
+      }
+    } catch (err) {
+      alert(`Fehler beim Löschen: ${err.message}`);
+    }
+  };
+
+  const handleNewUpload = () => {
+    setView('upload');
+  };
+
+  const handleUploadComplete = () => {
+    setView('dates');
+    reload();
+  };
+
   const handleSelectCoin = (coin) => {
     setSelectedCoin(coin);
     setView('dates');
   };
 
-  /**
-   * Wählt ein Datum aus und zeigt Bilder
-   */
   const handleSelectDate = (index) => {
     setCurrentDateIndex(index);
     setView('images');
   };
 
-  /**
-   * Geht zurück zur Coin-Liste
-   */
   const handleBackToCoins = () => {
     setView('coins');
     setSelectedCoin('');
   };
 
-  /**
-   * Geht zurück zur Datumsliste
-   */
   const handleBackToDates = () => {
     setView('dates');
   };
 
-  /**
-   * Öffnet Lightbox für spezifisches Bild
-   */
   const handleImageClick = (timeframe) => {
     setSelectedTimeframe(timeframe);
     setLightboxOpen(true);
   };
 
-  /**
-   * Schließt Lightbox
-   */
   const handleCloseLightbox = () => {
     setLightboxOpen(false);
     setSelectedTimeframe(null);
   };
 
-  /**
-   * Navigiert zum nächsten Datum
-   */
   const handleNext = () => {
     if (currentDateIndex < images.length - 1) {
       setCurrentDateIndex(currentDateIndex + 1);
     }
   };
 
-  /**
-   * Navigiert zum vorherigen Datum
-   */
   const handlePrevious = () => {
     if (currentDateIndex > 0) {
       setCurrentDateIndex(currentDateIndex - 1);
@@ -159,7 +217,19 @@ function App() {
         coin={selectedCoin}
         dates={images}
         onSelectDate={handleSelectDate}
+        onNewUpload={handleNewUpload}
+        onDelete={handleDeleteDate}
         onBack={handleBackToCoins}
+      />
+    );
+  }
+
+  if (view === 'upload') {
+    return (
+      <ImageUpload
+        coin={selectedCoin}
+        onBack={handleBackToDates}
+        onComplete={handleUploadComplete}
       />
     );
   }

@@ -4,8 +4,10 @@ Ein professionelles Tool zur Visualisierung und Dokumentation von Crypto-Backtes
 
 ## Features
 
+- 🔐 **Authentifizierung** - Session-basiertes Login mit SQLite-Backend
 - 📊 **Multi-Coin Support** - Verwaltung mehrerer Kryptowährungen (SOL, BTC, etc.)
 - 🖼️ **Chart-Visualisierung** - Anzeige von Charts in verschiedenen Zeiteinheiten (1m, 3m, 5m, 15m, 1h, 4h)
+- 📤 **Upload-Funktion** - Bilder per Copy & Paste oder Drag & Drop hochladen
 - 📝 **Notizensystem** - SQLite-basierte Notizen mit Auto-Save für jedes Datum
 - 🔄 **Hot-Reload** - Automatische Code-Aktualisierung während der Entwicklung
 - 📁 **Flexible Struktur** - Unterstützt mehrere Bilder pro Datum mit Sequenznummern
@@ -66,6 +68,21 @@ Konfigurationsdatei: `shared/config.json`
   }
 }
 ```
+
+### Authentifizierung
+
+**Erste Installation:**
+1. Kopiere `shared/auth.db.default` nach `shared/auth.db`
+2. Starte Server: `pnpm dev`
+3. Login im Browser: `admin` / `admin123`
+
+**Sicherheit:**
+- Passwörter werden als SHA256-Hash gespeichert
+- Sessions sind 24 Stunden gültig
+- `auth.db` ist in `.gitignore` (nicht im Repository)
+- `auth.db.default` dient als Template für neue Installationen
+
+**WICHTIG:** Ändere die Passwörter nach der Installation!
 
 ### Bildstruktur
 
