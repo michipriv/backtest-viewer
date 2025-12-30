@@ -1,0 +1,11 @@
+{
+  "_comment_filename": "Filename: shared/config.json",
+  "_comment_version": "V 1.04",
+  "basePath": "C:\\Users\\mmade\\OneDrive - Hellpower Energy e.U. Mader Michael\\03 Crypto\\backtest",
+  "coins": ["SOL", "BTC"],
+  "timeframes": ["1m", "3m", "5m", "15m", "1h", "4h"],
+  "server": {
+    "port": 3001,
+    "host": "localhost"
+  }
+}
