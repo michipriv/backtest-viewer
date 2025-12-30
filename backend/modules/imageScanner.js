@@ -1,6 +1,6 @@
 /*
   Filename: backend/modules/imageScanner.js
-  V 1.03
+  V 1.04
 */
 import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
@@ -69,13 +69,9 @@ function scanCoinImages(coinPath, coin, timeframes) {
         
         const timeframeMap = {
           '1m': '1m',
-          '1min': '1m',
           '3m': '3m',
-          '3min': '3m',
           '5m': '5m',
-          '5min': '5m',
           '15m': '15m',
-          '15min': '15m',
           '1h': '1h',
           '4h': '4h'
         };
